@@ -10,7 +10,7 @@ const geistSans = localFont({
 const geistMono = localFont({
   src: "./fonts/GeistMonoVF.woff",
   variable: "--font-geist-mono",
-  weight: "200 900",
+  weight: "300 900",
 });
 
 export const metadata: Metadata = {
