@@ -1,0 +1,81 @@
+name: Application Build
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_env:
+        type: choice
+        description: "배포 환경"
+        options:
+          - dev
+          - stg
+          - prd
+        required: true
+  push:
+    branches:
+      - develop
+      - stage
+      - main
+    paths:
+      - "src/"
+env:
+  SERVICE_NAME: example
+  WORKING_DIR: ./
+
+jobs:
+  build:
+    runs-on: [self-hosted, ARM64, front]
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+
+      - name: Set Image Tag
+        id: set-tag
+        run: |
+          if [[ $(echo ${{ github.event.inputs.deploy_env }}) ]]; then
+              ENV=${{ github.event.inputs.deploy_env }}
+          elif [[ $(echo ${GITHUB_REF_NAME} | cut -d'/' -f1) == 'main' ]] || [[ $(echo ${GITHUB_REF_NAME} | cut -d'/' -f1) == 'master' ]]; then
+            ENV='prd'
+          elif [[ $(echo ${GITHUB_REF_NAME} | cut -d'/' -f1) == 'stage' ]]; then
+            ENV='stg'
+          else
+            ENV='dev'
+          fi
+          echo "update_tag=$(date +%Y%m%d%H%M-$(echo ${GITHUB_REF_NAME} | cut -d'/' -f1)-${GITHUB_SHA} | cut -c1-30)" >> $GITHUB_OUTPUT
+          echo "env_name=${ENV}" >> $GITHUB_OUTPUT
+
+      - name: Setup node 20
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20.13.1
+
+      - name: Use NextJS Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ${{ github.workspace }}/.next/cache
+          key: nextjs-${{ hashFiles('**/yarn.lock') }}-${{ hashFiles('src/**.[jt]s', 'src/**.[jt]sx') }}
+          restore-keys: |
+            nextjs-${{ hashFiles('**/yarn.lock') }}
+
+      - name: Set yarn
+        run: |
+          npm install -g yarn
+          yarn install
+
+      - name: Application Build
+        run: yarn build
+        working-directory: ${{ env.WORKING_DIR }}
+        env:
+          COMMON_SENTRY_DSN: ${{ secrets.COMMON_SENTRY_DSN }}
+          NEXT_PUBLIC_COMMON_SENTRY_DSN: ${{ secrets.COMMON_SENTRY_DSN }}
+          COMMON_SENTRY_AUTH_TOKEN: ${{ secrets.COMMON_SENTRY_AUTH_TOKEN }}
+          FB_PIXEL_ID: ${{ secrets.FB_PIXEL_ID }}
+          FB_PIXEL_ID_ANSIM: ${{ secrets.FB_PIXEL_ID_ANSIM }}
+          KAKAO_ADMIN_KEY: ${{ secrets.KAKAO_ADMIN_KEY }}
+
+      - name: set service version tag
+        id: app-version
+        run: |
+          echo "version=$(grep -oP '(?<="version": ")[^"]*' package.json)" >> $GITHUB_OUTPUT
+        working-directory: ${{ env.WORKING_DIR }}
