@@ -23,7 +23,7 @@ env:
 
 jobs:
   build:
-    runs-on: [self-hosted, ARM64, front]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
         with:
