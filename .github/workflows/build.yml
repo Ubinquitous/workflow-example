@@ -22,6 +22,19 @@ env:
   WORKING_DIR: ./
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+
+      - name: Lint
+        id: lint
+        run: |
+          npm install -g yarn
+          yarn
+          yarn lint
   build:
     runs-on: ubuntu-latest
     steps:
